@@ -1,5 +1,6 @@
 import maya.cmds as mc
 import maya.mel as ml
+from maya.OpenMaya import MVector
 
 def ConfigureCtrlForJnt(jnt, ctrlName):
     ctrlGrpName = ctrlName + "_grp"
@@ -52,3 +53,9 @@ def CreateBoxControllerForJnt(jnt, namePrefix, size=10):
     # this is the same as freeze transformation command in maya
     mc.makeIdentity(ctrlName, apply=True)
     return ConfigureCtrlForJnt(jnt, ctrlName)
+
+
+def GetObjectPositionAsMVec(objectName)->MVector:
+    # t means translate values, ws means world space, q mean query
+    wsLoc = mc.xform(objectName, t=True, ws=True, q=True)
+    return MVector(wsLoc[0], wsLoc[1], wsLoc[2])

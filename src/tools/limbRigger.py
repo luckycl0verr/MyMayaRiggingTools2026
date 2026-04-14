@@ -1,6 +1,7 @@
 from core.MayaWidget import MayaWidget
 from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QLabel
 import maya.cmds as mc
+from maya.OpenMaya import MVector # this is the same as the Vector3 in Unity, transform.position
 
 import importlib
 import core.MayaUtilities

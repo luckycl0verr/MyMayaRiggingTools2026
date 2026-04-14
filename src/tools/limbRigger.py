@@ -60,6 +60,22 @@ class LimbRigger:
         poleVecDir = MVector(poleVectorVals[0], poleVectorVals[1], poleVectorVals[2])
         poleVecDir.normalize() # make it a unit vector, a vector that has a length of 1
 
+        rootToEndVec = endJntLoc - rootJntLoc
+        rootToEndDist = rootToEndVec.length()
+
+        poleVectorCtrlLoc = rootJntLoc + rootToEndVec/2.0 + poleVecDir * rootToEndDist
+
+        poleVectorCtrlName = "ac_ik_" + self.nameBase + "poleVector"
+        mc.spaceLocator(n=poleVectorCtrlName)
+
+        poleVectorCtrlGrpName = poleVectorCtrlName + "_grp"
+        mc.group(poleVectorCtrlName, n = poleVectorCtrlGrpName)
+
+        mc.setAttr(f"{poleVectorCtrlGrpName}.translate", poleVectorCtrlLoc.x, poleVectorCtrlLoc.y, poleVectorCtrlLoc.z, type="double3")
+        mc.poleVectorConstraint(poleVectorCtrlName, ikHandleName)
+
+
+
 
 
 class LimbRiggerWidget(MayaWidget):

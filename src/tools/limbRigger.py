@@ -9,7 +9,9 @@ importlib.reload(core.MayaUtilities)
 from core.MayaUtilities import (CreateCircleControllerForJnt, 
                                 CreateBoxControllerForJnt,
                                 CreatePlusController,
-                                ConfigureCtrlForJnt)
+                                ConfigureCtrlForJnt,
+                                GetObjectPositionAsMVec
+                                )
 
 class LimbRigger:
     def __init__(self):
@@ -50,6 +52,14 @@ class LimbRigger:
 
         ikHandleName = "ikHandle_" + self.nameBase 
         mc.ikHandle(n=ikHandleName, sj = rootJnt, ee=endJnt, sol="ikRPsolver")
+
+        rootJntLoc = GetObjectPositionAsMVec(rootJnt)
+        endJntLoc = GetObjectPositionAsMVec(endJnt)
+
+        poleVectorVals = mc.getAttr(f"{ikHandleName}.poleVector")
+        poleVecDir = MVector(poleVectorVals[0], poleVectorVals[1], poleVectorVals[2])
+        poleVecDir.normalize() # make it a unit vector, a vector that has a length of 1
+
 
 
 class LimbRiggerWidget(MayaWidget):

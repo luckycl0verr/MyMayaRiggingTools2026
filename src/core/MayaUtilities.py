@@ -13,9 +13,29 @@ def ConfigureCtrlForJnt(jnt, ctrlName):
 # make the plus shaped controller, this will be used for the ikfk blend
 def CreatePlusController(namePrefix, size):
     # use the ml.eval() to make the plus shaped curve
+    ctrlName = f"ac_{namePrefix}"
+    ml.eval(f"curve -n {ctrlName} -d 1 -p 1 1 0 -p 1 3 0 -p -1 3 0 -p -1 1 0 -p -3 1 0 -p -3 -1 0 -p -1 -1 0 -p -1 -3 0 -p 1 -3 0 -p 1 -1 0 -p 3 -1 0 -p 3 1 0 -p 1 1 0 -k 0 -k 1 -k 2 -k 3 -k 4 -k 5 -k 6 -k 7 -k 8 -k 9 -k 10 -k 11 -k 12 ;")
+
     # scale the controller to the size
+    mc.setAttr(f"{ctrlName}.scale", size/6.0, size/6.0, size/6.0, type="double3")
+
     # freeze transformation
+    mc.makeIdentity(ctrlName, apply=True)
+
     # lock and hide the translate, scale, and rotation, and visibility of the controller
+    mc.setAttr(f'{ctrlName}.translateX', lock=True, cb=False, k=False)
+    mc.setAttr(f'{ctrlName}.translateY', lock=True, cb=False, k=False)
+    mc.setAttr(f'{ctrlName}.translateZ', lock=True, cb=False, k=False)
+    mc.setAttr(f'{ctrlName}.scaleX', lock=True, cb=False, k=False)
+    mc.setAttr(f'{ctrlName}.scaleY', lock=True, cb=False, k=False)
+    mc.setAttr(f'{ctrlName}.scaleZ', lock=True, cb=False, k=False)
+    mc.setAttr(f'{ctrlName}.rotateX', lock=True, cb=False, k=False)
+    mc.setAttr(f'{ctrlName}.rotateY', lock=True, cb=False, k=False)
+    mc.setAttr(f'{ctrlName}.rotateZ', lock=True, cb=False, k=False)
+    mc.setAttr(f'{ctrlName}.visibility', lock=True, cb=False, k=False)
+
+    return ctrlName
+
 
 
 def CreateCircleControllerForJnt(jnt, namePrefix, radius=10):

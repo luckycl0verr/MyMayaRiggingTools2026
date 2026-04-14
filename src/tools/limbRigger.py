@@ -5,7 +5,10 @@ import maya.cmds as mc
 import importlib
 import core.MayaUtilities
 importlib.reload(core.MayaUtilities)
-from core.MayaUtilities import CreateCircleControllerForJnt, CreateBoxControllerForJnt
+from core.MayaUtilities import (CreateCircleControllerForJnt, 
+                                CreateBoxControllerForJnt,
+                                CreatePlusController,
+                                ConfigureCtrlForJnt)
 
 class LimbRigger:
     def __init__(self):
@@ -36,6 +39,13 @@ class LimbRigger:
         mc.parent(midCtrlGrp, rootCtrl)
 
         endIkCtrl, endIkCtrlGrp = CreateBoxControllerForJnt(endJnt, "ik_" + self.nameBase, self.controllerSize)
+
+        ikFkBlendCtrlPrefix = self.nameBase + "_ikfkBlend"
+        ikFkBlendController =  CreatePlusController(ikFkBlendCtrlPrefix, self.blendControllerSize)
+        ikFkBlendController, ikFkBlendControllerGrp = ConfigureCtrlForJnt(rootJnt, ikFkBlendController)
+
+        ikfkBlendAttrName = "ikfkBlend"
+        mc.addAttr(ikFkBlendController, ln=ikfkBlendAttrName, min=0, max=1, k=True)
 
 
 class LimbRiggerWidget(MayaWidget):

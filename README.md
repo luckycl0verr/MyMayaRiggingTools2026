@@ -10,6 +10,6 @@
 
 ## Limb Rigger
 
-<img src=">
+<img src="assest/limbRiggerScreenshot.png" width = 300>
 
 * Rig arms and legs with ikfk blend

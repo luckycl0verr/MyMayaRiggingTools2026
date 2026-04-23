@@ -1,168 +1,176 @@
-import importlib
-import core.MayaWidget
-importlib.reload(core.MayaWidget)
-
 from core.MayaWidget import MayaWidget
-from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QLabel
+from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QTextEdit, QPushButton, QLabel, QLineEdit, QColorDialog
 import maya.cmds as mc
-from maya.OpenMaya import MVector 
+from maya.OpenMaya import MVector #This is the same as the Vector3 in Unity, transform.position.
+
 
 import importlib
 import core.MayaUtilities
 importlib.reload(core.MayaUtilities)
-from core.MayaUtilities import (CreateCircleControllerForJnt, CreateBoxControllerForJnt,CreatePlusController,ConfigureCtrlForJnt, GetObjectPositionAsMVec)
+from core.MayaUtilities import CreateCircleControllerForJnt, CreateBoxControllerForJnt, CreatePlusController, ConfigureCtrlForJnt, GetObjectPositionAsMVec
 
+#The class to handle the rigging job.
 class LimbRigger:
+    #The constructor of the limb rigger class, to initialize the attributes.
     def __init__(self):
-        self.nameBase = ""
-        self.controllerSize = 10
-        self.blendControllerSize = 4
-        self.controlColorRGB = [0,0,0]
+        self.nameBase = "" #Stores the base name used for naming all created rig elements.
+        self.controllerSize = 10 #Default size for FK/IK controllers.
+        self.blendControllerSize = 4 #Size for the IK/FK blend controller.
+        self.controllerColorRGB = [1,1,1] #Default controller color (white in RGB).
 
-    def SetNameBase(self, NewNameBase):
-        self.nameBase = NewNameBase
-        print(f"name base is set to: {self.nameBase}")
+    def SetNameBase(self, newNameBase):
+        self.nameBase = newNameBase #Update the naming base.
+        print(f"name base is set to: {self.nameBase}") #Print confirmation.
 
     def SetControllerSize(self, newControllerSize):
-        self.controllerSize = newControllerSize
+        self.controllerSize = newControllerSize #Update controller size.
 
-    def SetBlendControllersize(self, newBlendControllerSize):
-        self.blendControllerSize = newBlendControllerSize
+    def SetBlendControllerSize(self, newBlendControllerSize):
+        self.blendControllerSize = newBlendControllerSize #Update blend controller size.
 
     def RigLimb(self):
-        print("start Rigging!")
-        rootJnt, midJnt, endJnt = mc.ls(sl=True)
-        print(f"found root {rootJnt}, mid:{midJnt}, and end: {endJnt}")
+        print("Start Rigging!!") #Indicates that the rigging process has started.
+        rootJnt, midJnt, endJnt = mc.ls(sl=True) #Get the selected joints (root, middle, end)
+        print(f"found root {rootJnt}, mid: {midJnt}, and end {endJnt}") #Print the selected joints.
 
-        rootCtrl, rootCtrlGrp = CreateCircleControllerForJnt(rootJnt, "fk_" + self.nameBase, self.controllerSize)
-        midCtrl, midCtrlGrp = CreateCircleControllerForJnt(midJnt, "fk_" + self.nameBase, self.controllerSize)
-        endCtrl, endCtrlGrp = CreateCircleControllerForJnt(endJnt, "fk_" + self.nameBase, self.controllerSize)
-        
-        mc.parent(endCtrlGrp, midCtrl)
-        mc.parent(midCtrlGrp, rootCtrl)
+        rootCtrl, rootCtrlGrp = CreateCircleControllerForJnt(rootJnt, "fk_" + self.nameBase, self.controllerSize) #Creates the FK controller for the root joint.
+        midCtrl, midCtrlGrp = CreateCircleControllerForJnt(midJnt, "fk_" + self.nameBase, self.controllerSize) #Creates the FK controller for the mid joint.
+        endCtrl, endCtrlGrp = CreateCircleControllerForJnt(endJnt, "fk_" + self.nameBase, self.controllerSize) #Creates the FK controller for the end joint.
 
-        endIkCtrl, endIkCtrlGrp = CreateBoxControllerForJnt(endJnt, "ik_" + self.nameBase, self.controllerSize)
+        print(f"parenting: {endCtrlGrp} to {midCtrl}") #Logs the parenting operation.
+        mc.parent(endCtrlGrp, midCtrl) #Parents the end controller group under the mid controller.
+        print(f"parenting: {midCtrlGrp} to {rootCtrl}") #Logs the parenting operation.
+        mc.parent(midCtrlGrp, rootCtrl) #Parents the mid controller group under the root controller.
 
-        ikFkBlendCtrlPrefix = self.nameBase + "_ikfkBlend"
-        ikFkBlendController = CreatePlusController(ikFkBlendCtrlPrefix, self.blendControllerSize)
-        ikFkBlendController, ikFkBlendControllerGrp = ConfigureCtrlForJnt(rootJnt, ikFkBlendController, False)
+        endIKCtrl, endIKCtrlGrp = CreateBoxControllerForJnt(endJnt, "ik_" + self.nameBase, self.controllerSize) #Creates the IK controller for the end joint.
 
-        ikfkBlendAttrName = "ikfkBlend"
-        mc.addAttr(ikFkBlendController,ln=ikfkBlendAttrName, min=0, max=1, k=True)
+        ikFkBlendCtrlPrefix = self.nameBase+"_ikfkBlend" #The prefix for the blend controller naming.
+        ikFkBlendController = CreatePlusController(ikFkBlendCtrlPrefix, self.blendControllerSize) #Creates IK/FK blend controller.
+        ikFkBlendController, ikFkBlendCtrlControllerGrp = ConfigureCtrlForJnt(rootJnt, ikFkBlendController, False) #Positions the blend controller.
 
-        ikHandleName = "ikHandle_" + self.nameBase
-        mc.ikHandle(n=ikHandleName, sj=rootJnt, ee=endJnt, sol="ikRPsolver")
+        ikFkBlendAttrName = "ikfkBlend" #Name of the blend attribute.
+        mc.addAttr(ikFkBlendController, ln=ikFkBlendAttrName, min = 0, max = 1, k=True) #Add the blend attribute (0 = FK and 1 = IK).
 
-        rootJntLoc = GetObjectPositionAsMVec(rootJnt)
-        endJntLoc = GetObjectPositionAsMVec(endJnt)
-        
-        poleVectorVals = mc.getAttr(f"{ikHandleName}.poleVector")[0]
-        poleVecDir = MVector(poleVectorVals[0], poleVectorVals[1], poleVectorVals[2])
-        poleVecDir.normalize()
+        ikHandleName = "ikHandle_" + self.nameBase #Name for the IK handle.
+        mc.ikHandle(n=ikHandleName, sj = rootJnt, ee=endJnt, sol="ikRPsolver") #Create the IK handle from the root joint to the end joint.
 
-        rootToEndVec = endJntLoc - rootJntLoc
-        rootToEndDist = rootToEndVec.length()
+        rootJntLoc = GetObjectPositionAsMVec(rootJnt) #Get the root joint position as the vector.
+        endJntLoc = GetObjectPositionAsMVec(endJnt) #Get the end joint position as the vector.
 
-        poleVectorCtrlLoc = rootJntLoc + rootToEndVec/2.0 + poleVecDir * rootToEndDist
+        poleVectorVals = mc.getAttr(f"{ikHandleName}.poleVector")[0] #Get the pole vector direction from the IK handle.
+        poleVecDir = MVector(poleVectorVals[0], poleVectorVals[1], poleVectorVals[2]) #Coverts to a vector object.
+        poleVecDir.normalize() #Make it a unit vector, a vector that has a length of 1.
 
-        poleVectorCtrlName = "ac_ik_" + self.nameBase + "PoleVector"
-        mc.spaceLocator(n=poleVectorCtrlName)
+        rootToEndVec = endJntLoc - rootJntLoc #Vector from the root joint to the end joint.
+        rootToEndDist = rootToEndVec.length() #Distance between the root and the end joint.
 
-        poleVectorCtrlGrpName = poleVectorCtrlName + "_grp"
-        mc.group(poleVectorCtrlName, n = poleVectorCtrlGrpName)
+        poleVectorCtrlLoc = rootJntLoc + rootToEndVec /2.0 + poleVecDir * rootToEndDist #Calculate the pole vector controller position.
 
-        mc.setAttr(f"{poleVectorCtrlGrpName}.translate", poleVectorCtrlLoc.x, poleVectorCtrlLoc.y, poleVectorCtrlLoc.z, type="double3")
-        mc.poleVectorConstraint(poleVectorCtrlName, ikHandleName)
+        poleVectorCtrlName = "ac_ik_" + self.nameBase + "poleVector" #Name for the pole vector control.
+        mc.spaceLocator(n=poleVectorCtrlName) #Create a locator for the pole vector.
 
-        mc.parent(ikHandleName, endIkCtrl)
-        mc.setAttr(f"{ikHandleName}.v", 0)
+        poleVectorCtrlGrpName = poleVectorCtrlName + "_grp" #Create a group name for the pole vector.
+        mc.group(poleVectorCtrlName, n = poleVectorCtrlGrpName) #Group the locator.
 
-        mc.connectAttr(f"{ikFkBlendController}.{ikfkBlendAttrName}", f"{ikHandleName}.ikBlend")
-        mc.connectAttr(f"{ikFkBlendController}.{ikfkBlendAttrName}", f"{endIkCtrlGrp}.v")
-        mc.connectAttr(f"{ikFkBlendController}.{ikfkBlendAttrName}", f"{poleVectorCtrlGrpName}.v")
+        mc.setAttr(f"{poleVectorCtrlGrpName}.translate", poleVectorCtrlLoc.x, poleVectorCtrlLoc.y, poleVectorCtrlLoc.z, type="double3") #Sets the position of the pole vector control.
+        mc.poleVectorConstraint(poleVectorCtrlName, ikHandleName) #Constrain the IK Handle to the pole vector.
 
-        reverseNodeName = f"{self.nameBase}_reverse"
-        mc.createNode("reverse", n=reverseNodeName)
+        mc.parent(ikHandleName, endIKCtrl) #Parents the IK handle under the IK controller.
+        mc.setAttr(f"{ikHandleName}.v", 0) #Hides the IK handle.
 
-        mc.connectAttr(f"{ikFkBlendController}.{ikfkBlendAttrName}", f"{reverseNodeName}.inputX")
-        mc.connectAttr(f"{reverseNodeName}.outputX", f"{rootCtrlGrp}.v")
+        mc.connectAttr(f"{ikFkBlendController}. {ikFkBlendAttrName}", f"{ikHandleName}.ikBlend") #Connects the blend attribute to the IK handle.
+        mc.connectAttr(f"{ikFkBlendController}. {ikFkBlendAttrName}", f"{endIKCtrlGrp}.v") #Controls the IK controller's visibility.
+        mc.connectAttr(f"{ikFkBlendController}. {ikFkBlendAttrName}", f"{poleVectorCtrlGrpName}.v") #Controls the pole vector's visibility.
 
-        orientConstraint = None
-        wristConnections = mc.listConnections(endJnt)
-        for connection in wristConnections:
-            if mc.objectType(connection) == "orientConstraint":
-                orientConstraint = connection
+        reverseNodeName = f"{self.nameBase}_reverse" #Name for the reverse node in the node editor.
+        mc.createNode("reverse", n=reverseNodeName) #Creates the reverse node in the node editor.
+
+        mc.connectAttr(f"{ikFkBlendController}. {ikFkBlendAttrName}", f"{reverseNodeName}.inputX") #Connects the blend attribute to the reverse node input.
+        mc.connectAttr(f"{reverseNodeName}.outputX", f"{rootCtrlGrp}.v") #Uses the reverse output to control the FK visibility.
+
+        orientConstraint = None #Initializes the orient constraint variable.
+        wristConnections = mc.listConnections(endJnt) #Gets all the connections to the end joint.
+        for connection in wristConnections: #Loops through the connections.
+            if mc.objectType(connection) == "orientConstraint": #Checks if it's an orient constraint.
+                orientConstraint = connection #Stores it
                 break
+        mc.connectAttr(f"{ikFkBlendController}.{ikFkBlendAttrName}", f"{orientConstraint}.{endIKCtrl}W1") #Connects the IK weight.
+        mc.connectAttr(f"{reverseNodeName}.outputX", f"{orientConstraint}.{endCtrl}W0") #Connects the FK weight.
 
-        mc.connectAttr(f"{ikFkBlendController}.{ikfkBlendAttrName}", f"{orientConstraint}.{endIkCtrl}W1")
-        mc.connectAttr(f"{reverseNodeName}.outputX", f"{orientConstraint}.{endCtrl}W0")
+        topGrpName = f"{self.nameBase}_rig_grp" #Name for the top-level group.
+        mc.group(n=topGrpName, empty=True) #Creates an empty group.
 
-        topGrpName = f"{self.nameBase}_rig_grp"
-        mc.group(n=topGrpName, empty=True)
+        mc.parent(rootCtrlGrp, topGrpName) #Parents the FK controls under the top group.
+        mc.parent(ikFkBlendCtrlControllerGrp, topGrpName) #Parents the blend control group.
+        mc.parent(endIKCtrlGrp, topGrpName) #Parents the IK Control group.
+        mc.parent(poleVectorCtrlGrpName, topGrpName) #Parents the pole vector group.
 
-        mc.parent(rootCtrlGrp, topGrpName)
-        mc.parent(ikFkBlendControllerGrp, topGrpName)
-        mc.parent(endIkCtrlGrp, topGrpName)
-        mc.parent(poleVectorCtrlGrpName, topGrpName)
+        #HW: Add color override for the topGrpName to be self.controllerColorRGB.
+        mc.setAttr(f"{topGrpName}.overrideEnabled", 1) #Enables color override.
+        mc.setAttr(f"{topGrpName}.overrideRGBColors", 1) #Uses the RGB color mode.
 
-        mc.setAttr(f"{topGrpName}.overrideEnabled", 1)
-        mc.setAttr(f"{topGrpName}.overrideRGBColors", 1)
-
-        mc.setAttr(f"{topGrpName}.overrideColorR", self.controllerColorRGB[0])
-        mc.setAttr(f"{topGrpName}.overrideColorG", self.controllerColorRGB[1])
-        mc.setAttr(f"{topGrpName}.overrideColorB", self.controllerColorRGB[2])
+        mc.setAttr(f"{topGrpName}.overrideColorR", self.controllerColorRGB[0]) #Sets the red channel.
+        mc.setAttr(f"{topGrpName}.overrideColorG", self.controllerColorRGB[1]) #Sets the green channel.
+        mc.setAttr(f"{topGrpName}.overrideColorB", self.controllerColorRGB[2]) #Sets the blue channel.
 
 class LimbRiggerWidget(MayaWidget):
 
     def __init__(self):
-        super().__init__()
-        self.setWindowTitle("Limb Rigger")
-        self.rigger = LimbRigger()
-        self.masterLayout = QVBoxLayout()
-        self.setLayout(self.masterLayout)
-        self.controlColorRGB = [0,0,0]
+        super().__init__() #Initializes the parent widget.
+        self.setWindowTitle("Limb Rigger") #Sets the window title.
+        self.rigger = LimbRigger() #Creates the LimbRigger instance.
+        self.masterLayout = QVBoxLayout() #This is the Main vertical layout.
+        self.setLayout(self.masterLayout) #Assigns the layout to the widget.
+        self.controlColorRGB = [0,0,0] #Stores the selected color.
 
-        self.masterLayout.addWidget(QLabel("Select the 3 joints of the limb, from base to end, and then: "))
+        self.masterLayout.addWidget(QLabel("Select the 3 joints of the limb, from base to end, and then: ")) #This is the instruction label for the widget.
 
-        self.infoLayout = QHBoxLayout()
-        self.masterLayout.addLayout(self.infoLayout)
-        self.infoLayout.addWidget(QLabel("Name Base:"))
+        self.infoLayout = QHBoxLayout() #Horizontal layout for the inputs.
+        self.masterLayout.addLayout(self.infoLayout) #Adds to the main layout.
+        self.infoLayout.addWidget(QLabel("Name Base:")) #The label for the name input.
 
-        self.nameBaseLineEdit = QLineEdit()
-        self.infoLayout.addWidget(self.nameBaseLineEdit)
+        self.nameBaseLineEdit = QLineEdit() #This is a text input field.
+        self.infoLayout.addWidget(self.nameBaseLineEdit) #Adds to the layout.
 
-        self.setNameBaseBtn = QPushButton("Set Name Base")
-        self.setNameBaseBtn.clicked.connect(self.SetNameBaseBtnClicked)
-        self.infoLayout.addWidget(self.setNameBaseBtn)
+        self.setNameBaseBtn = QPushButton("Set Name Base") #This is the button to set the name(s).
+        self.setNameBaseBtn.clicked.connect(self.SetNameBaseBtnClicked) #Connects the button to its function.
+        self.infoLayout.addWidget(self.setNameBaseBtn) #Adds the button to the layout.
 
-        self.masterLayout.addWidget(QLabel("Base Color:"))
+        #Add a color pick widget to the self.masterLayout 
+        self.masterLayout.addWidget(QLabel("Base Color:")) #This is the label for color selection.
 
-        self.controlColorBtn = QPushButton("Select Color")
-        self.controlColorBtn.clicked.connect(self.controlColorBtnClicked)
-        self.masterLayout.addWidget (self.controlColorBtn)
+        self.controlColorBtn = QPushButton("Select Color") #This is the button to open the color picker.
+        self.controlColorBtn.clicked.connect(self.controlColorBtnClicked) #Connects to the rigging function.
+        self.masterLayout.addWidget (self.controlColorBtn) #Adds the button to the layout.
 
-        self.rigLimbBtn = QPushButton("Rig Limb") 
-        self.rigLimbBtn.clicked.connect(self.RigLimbBtnClicked) 
-        self.masterLayout.addWidget(self.rigLimbBtn) 
+        self.rigLimbBtn = QPushButton("Rig Limb") #This is the button to trigger the rigging.
+        self.rigLimbBtn.clicked.connect(self.RigLimbBtnClicked) #Connects to the rigging function.
+        self.masterLayout.addWidget(self.rigLimbBtn) #Adds the button to the layout.
 
+
+    #Listen for Color Change and connect to a function.
     def controlColorBtnClicked(self):
-        pickedColor = QColorDialog().getColor() 
-        self.rigger.controllerColorRGB[0] = pickedColor.redF() 
-        self.rigger.controllerColorRGB[1] = pickedColor.greenF() 
-        self.rigger.controllerColorRGB[2] = pickedColor.blueF() 
-        print(self.rigger.controllerColorRGB) 
+        pickedColor = QColorDialog().getColor() #Opens the color picker dialog.
+        self.rigger.controllerColorRGB[0] = pickedColor.redF() #Stores the red value in RGB.
+        self.rigger.controllerColorRGB[1] = pickedColor.greenF() #Stores the green value in RGB.
+        self.rigger.controllerColorRGB[2] = pickedColor.blueF() #Stores the blue value in RGB.
+        print(self.rigger.controllerColorRGB) #Prints the selected color.
+
+        #The function needs to update the color of the limbRigger: self.rigger.controlColorRGB.
+
 
     def SetNameBaseBtnClicked(self):
-        self.rigger.SetNameBase(self.nameBaseLineEdit.text()) 
+        self.rigger.SetNameBase(self.nameBaseLineEdit.text()) #Passes the text input to the rigger.
 
     def RigLimbBtnClicked(self):
-        self.rigger.RigLimb() 
+        self.rigger.RigLimb() #This triggers the rigging process.
+
 
     def GetWidgetHash(self):
-        return "4067fcd8bf8e146af389a6de3aff0f88f88668684ed0aa0944d96e6b3b94b3e8" 
+        return "4067fcd8bf8e146af389a6de3aff0f88f88668684ed0aa0944d96e6b3b94b3e8" #Returns the unique identifier.
 
 def Run():
-    limbRiggerWidget = LimbRiggerWidget() 
-    limbRiggerWidget.show() 
+    limbRiggerWidget = LimbRiggerWidget() #Creates the widget instance.
+    limbRiggerWidget.show() #Displays the UI Window.
 
-Run()
+Run() #Executes the tool.
